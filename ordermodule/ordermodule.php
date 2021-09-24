@@ -79,67 +79,107 @@ class OrderModule extends Module
     public function getContent()
     {
         $currentCarrier = (string) Tools::getValue('carrier');
-        $db = Db::getInstance();
-        $carriers = $db->executeS('SELECT id_carrier, name FROM '._DB_PREFIX_.'carrier');
 
+        return $this->displayForm($currentCarrier);
+    }
+
+    public function displayForm($currentCarrier)
+    {
+        $carriers = Db::getInstance()->executeS('SELECT id_carrier, name FROM '._DB_PREFIX_.'carrier');
         if (!$currentCarrier) {
             $currentCarrier = $carriers[0]['id_carrier'];
         }
-        $orders = $db->executeS('
-            SELECT o.order_carrier_number, o.id_order,  o.reference, o.total_paid, o.payment, o.date_add, CONCAT_WS(" ", c.firstname, c.lastname)
-            FROM ps_orders o
-            LEFT JOIN ps_customer c ON o.id_customer = c.id_customer
-            WHERE o.id_carrier = '. $currentCarrier .' AND o.order_carrier_number IS NOT NULL
-            ORDER BY o.order_carrier_number DESC
-        ');
 
-        $this->context->smarty->assign([
-            'carriers' => $carriers,
-            'currentCarrier' => $currentCarrier,
-            'orders' => $orders,
-        ]);
+        $form = [
+            'form' => [
+                'legend' => [
+                    'title' => $this->l('Settings'),
+                    'icon' => 'icon-cogs',
+                ],
+                'input' => [
+                    [
+                        'type' => 'select',
+                        'label' => 'Carriers',
+                        'name' => 'carrier',
+                        'desc' => 'Please select an carrier',
+                        'onchange' => 'this.form.submit()',
+                        'options' => [
+                            'query' => $carriers,
+                            'id' => 'id_carrier',
+                            'name' => 'name',
+                        ],
+                    ],
+                ],
+            ],
+        ];
 
-        return $this->display(__FILE__, '/views/templates/admin/config.tpl');
+        $helper = new HelperForm();
+        $helper->table = $this->table;
+        $helper->name_controller = $this->name;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+        $helper->currentIndex = AdminController::$currentIndex . '&' . http_build_query(['configure' => $this->name]);
+        $helper->default_form_language = (int) Configuration::get('PS_LANG_DEFAULT');
+
+        $helper->fields_value['carrier'] = $currentCarrier;
+
+        return $helper->generateForm([$form]) . $this->displayList($currentCarrier);
     }
 
-    // public function displayForm()
-    // {
-    //     $carriers = Db::getInstance()->executeS('SELECT id_carrier, name FROM '._DB_PREFIX_.'carrier');
-    //     $form = [
-    //         'form' => [
-    //             'legend' => [
-    //                 'title' => $this->l('Settings'),
-    //                 'icon' => 'icon-cogs',
-    //             ],
-    //             'input' => [
-    //                 [
-    //                     'type' => 'select',
-    //                     'label' => 'Carriers',
-    //                     'name' => 'CARRIER',
-    //                     'desc' => 'Please select an carrier',
-    //                     'options' => [
-    //                         'query' => $carriers,
-    //                         'id' => 'id_carrier',
-    //                         'name' => 'name',
-    //                     ],
-    //                 ],
-    //             ],
-    //         ],
-    //     ];
+    public function displayList($carrier) 
+    {
+        $orders = Db::getInstance()->executeS('
+            SELECT o.order_carrier_number, o.id_order,  o.reference, o.total_paid, o.payment, o.date_add, CONCAT_WS(" ", c.firstname, c.lastname) AS customer
+            FROM ps_orders o
+            LEFT JOIN ps_customer c ON o.id_customer = c.id_customer
+            WHERE o.id_carrier = '. $carrier .' AND o.order_carrier_number IS NOT NULL
+            ORDER BY o.order_carrier_number DESC
+        ');
+        $this->fields_list = array(
+            'order_carrier_number' => array(
+                'title' => $this->l('#'),
+                'type' => 'text',
+            ),
+            'id_order' => array(
+                'title' => $this->l('ID'),
+                'type' => 'text',
+            ),
+            'reference' => array(
+                'title' => $this->l('Reference'),
+                'type' => 'text',
+            ),
+            'total_paid' => array(
+                'title' => $this->l('Total'),
+                'type' => 'text',
+            ),
+            'payment' => array(
+                'title' => $this->l('Payment'),
+                'type' => 'text',
+            ),
+            'date_add' => array(
+                'title' => $this->l('Date'),
+                'type' => 'text',
+            ),
+            'customer' => array(
+                'title' => $this->l('Customer'),
+                'type' => 'text',
+            ),
+        );
+        $helper = new HelperList();
+         
+        $helper->shopLinkType = '';
+         
+        $helper->simple_header = true;
+         
+        $helper->identifier = 'id_order';
+        $helper->show_toolbar = true;
+        $helper->title = 'Orders';
+        $helper->table = $this->name.'_orders';
+         
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+        $helper->currentIndex = AdminController::$currentIndex.'&configure='.$this->name;
 
-    //     $helper = new HelperForm();
-    //     $helper->table = $this->table;
-    //     $helper->name_controller = $this->name;
-    //     $helper->token = Tools::getAdminTokenLite('AdminModules');
-    //     $helper->currentIndex = AdminController::$currentIndex . '&' . http_build_query(['configure' => $this->name]);
-    //     $helper->default_form_language = (int) Configuration::get('PS_LANG_DEFAULT');
-
-    //     if ($carriers && count($carriers) > 0) {
-    //         $helper->fields_value['CARRIER'] = $carriers[0]['id_carrier'];
-    //     }
-
-    //     return $helper->generateForm([$form]);
-    // }
+        return $helper->generateList($orders, $this->fields_list);
+    }
 
     private function alterTable($method)
     {
