@@ -99,9 +99,9 @@ class OrderModule extends Module
                 'input' => [
                     [
                         'type' => 'select',
-                        'label' => 'Carriers',
+                        'label' => $this->l('Carriers'),
                         'name' => 'carrier',
-                        'desc' => 'Please select an carrier',
+                        'desc' => $this->l('Please select an carrier'),
                         'onchange' => 'this.form.submit()',
                         'options' => [
                             'query' => $carriers,
@@ -122,18 +122,21 @@ class OrderModule extends Module
 
         $helper->fields_value['carrier'] = $currentCarrier;
 
-        return $helper->generateForm([$form]) . $this->displayList($currentCarrier);
+        return $helper->generateForm([$form]) . $this->displayOrderList($currentCarrier);
     }
 
-    public function displayList($carrier) 
+    public function displayOrderList($carrier_id) 
     {
         $orders = Db::getInstance()->executeS('
-            SELECT o.order_carrier_number, o.id_order,  o.reference, o.total_paid, o.payment, o.date_add, CONCAT_WS(" ", c.firstname, c.lastname) AS customer
-            FROM ps_orders o
-            LEFT JOIN ps_customer c ON o.id_customer = c.id_customer
-            WHERE o.id_carrier = '. $carrier .' AND o.order_carrier_number IS NOT NULL
+            SELECT o.order_carrier_number, o.id_order,  o.reference, CONCAT_WS("", cl.symbol, o.total_paid) AS total_paid, o.payment, o.date_add, CONCAT_WS(" ", c.firstname, c.lastname) AS customer
+            FROM '. _DB_PREFIX_ .'orders o
+            LEFT JOIN '. _DB_PREFIX_ .'customer c ON o.id_customer = c.id_customer
+            LEFT JOIN '. _DB_PREFIX_ .'currency_lang cl ON o.id_currency = cl.id_currency AND cl.id_lang = '. (int) Configuration::get('PS_LANG_DEFAULT') .'
+            WHERE o.id_carrier = '. $carrier_id .'
+                AND o.order_carrier_number IS NOT NULL
             ORDER BY o.order_carrier_number DESC
         ');
+
         $this->fields_list = array(
             'order_carrier_number' => array(
                 'title' => $this->l('#'),
@@ -157,7 +160,7 @@ class OrderModule extends Module
             ),
             'date_add' => array(
                 'title' => $this->l('Date'),
-                'type' => 'text',
+                'type' => 'datetime',
             ),
             'customer' => array(
                 'title' => $this->l('Customer'),
@@ -172,7 +175,7 @@ class OrderModule extends Module
          
         $helper->identifier = 'id_order';
         $helper->show_toolbar = true;
-        $helper->title = 'Orders';
+        $helper->title = $this->l('Orders');
         $helper->table = $this->name.'_orders';
          
         $helper->token = Tools::getAdminTokenLite('AdminModules');
@@ -206,5 +209,10 @@ class OrderModule extends Module
         }
 
         return true;
+    }
+
+    public function isUsingNewTranslationSystem()
+    {
+        return false;
     }
 }
