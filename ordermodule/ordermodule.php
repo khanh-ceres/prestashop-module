@@ -20,13 +20,13 @@ class OrderModule extends Module
 
         parent::__construct();
 
-        $this->displayName = $this->l('Order Module');
-        $this->description = $this->l('Numbering the orders');
+        $this->displayName = $this->trans('Order Module');
+        $this->description = $this->trans('Numbering the orders');
 
-        $this->confirmUninstall = $this->l('Are you sure you want to uninstall?');
+        $this->confirmUninstall = $this->trans('Are you sure you want to uninstall?');
 
         if (!Configuration::get('ORDERMODULE_NAME')) {
-            $this->warning = $this->l('No name provided');
+            $this->warning = $this->trans('No name provided');
         }
     }
 
@@ -90,18 +90,22 @@ class OrderModule extends Module
             $currentCarrier = $carriers[0]['id_carrier'];
         }
 
+        return $this->displayCarrierSelector($carriers, $currentCarrier) . $this->displayOrderList($currentCarrier);
+    }
+
+    public function displayCarrierSelector($carriers, $currentCarrier) {
         $form = [
             'form' => [
                 'legend' => [
-                    'title' => $this->l('Settings'),
+                    'title' => $this->trans('Settings', [], 'Modules.Ordermodule.Ordermodule'),
                     'icon' => 'icon-cogs',
                 ],
                 'input' => [
                     [
                         'type' => 'select',
-                        'label' => $this->l('Carriers'),
+                        'label' => $this->trans('Carriers', [], 'Modules.Ordermodule.Ordermodule'),
                         'name' => 'carrier',
-                        'desc' => $this->l('Please select an carrier'),
+                        'desc' => $this->trans('Please select a carrier', [], 'Modules.Ordermodule.Ordermodule'),
                         'onchange' => 'this.form.submit()',
                         'options' => [
                             'query' => $carriers,
@@ -122,7 +126,7 @@ class OrderModule extends Module
 
         $helper->fields_value['carrier'] = $currentCarrier;
 
-        return $helper->generateForm([$form]) . $this->displayOrderList($currentCarrier);
+        return $helper->generateForm([$form]);
     }
 
     public function displayOrderList($carrier_id) 
@@ -139,31 +143,31 @@ class OrderModule extends Module
 
         $this->fields_list = array(
             'order_carrier_number' => array(
-                'title' => $this->l('#'),
+                'title' => $this->trans('#', [], 'Modules.Ordermodule.Ordermodule'),
                 'type' => 'text',
             ),
             'id_order' => array(
-                'title' => $this->l('ID'),
+                'title' => $this->trans('ID', [], 'Modules.Ordermodule.Ordermodule'),
                 'type' => 'text',
             ),
             'reference' => array(
-                'title' => $this->l('Reference'),
+                'title' => $this->trans('Reference', [], 'Modules.Ordermodule.Ordermodule'),
                 'type' => 'text',
             ),
             'total_paid' => array(
-                'title' => $this->l('Total'),
+                'title' => $this->trans('Total', [], 'Modules.Ordermodule.Ordermodule'),
                 'type' => 'text',
             ),
             'payment' => array(
-                'title' => $this->l('Payment'),
+                'title' => $this->trans('Payment', [], 'Modules.Ordermodule.Ordermodule'),
                 'type' => 'text',
             ),
             'date_add' => array(
-                'title' => $this->l('Date'),
+                'title' => $this->trans('Date', [], 'Modules.Ordermodule.Ordermodule'),
                 'type' => 'datetime',
             ),
             'customer' => array(
-                'title' => $this->l('Customer'),
+                'title' => $this->trans('Customer', [], 'Modules.Ordermodule.Ordermodule'),
                 'type' => 'text',
             ),
         );
@@ -175,7 +179,7 @@ class OrderModule extends Module
          
         $helper->identifier = 'id_order';
         $helper->show_toolbar = true;
-        $helper->title = $this->l('Orders');
+        $helper->title = $this->trans('Orders', [], 'Modules.Ordermodule.Ordermodule');
         $helper->table = $this->name.'_orders';
          
         $helper->token = Tools::getAdminTokenLite('AdminModules');
@@ -213,6 +217,6 @@ class OrderModule extends Module
 
     public function isUsingNewTranslationSystem()
     {
-        return false;
+        return true;
     }
 }

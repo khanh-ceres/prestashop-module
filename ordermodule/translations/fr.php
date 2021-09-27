@@ -8,7 +8,7 @@ $_MODULE['<{ordermodule}prestashop>ordermodule_876f23178c29dc2552c0b48bf23cd9bd'
 $_MODULE['<{ordermodule}prestashop>ordermodule_0f40e8817b005044250943f57a21c5e7'] = 'Aucun nom fourni';
 $_MODULE['<{ordermodule}prestashop>ordermodule_f4f70727dc34561dfde1a3c529b6205c'] = 'Paramètres';
 $_MODULE['<{ordermodule}prestashop>ordermodule_1d6af794b2599c1407a83029a09d1ecf'] = 'Transporteurs';
-$_MODULE['<{ordermodule}prestashop>ordermodule_a3b5069592e173bcba81ed86486ab3e7'] = 'Veuillez sélectionner un transporteur';
+$_MODULE['<{ordermodule}prestashop>ordermodule_3f63451bbacbb1c3303d99d0309fdfe9'] = 'Veuillez sélectionner un transporteur';
 $_MODULE['<{ordermodule}prestashop>ordermodule_01abfc750a0c942167651c40d088531d'] = '#';
 $_MODULE['<{ordermodule}prestashop>ordermodule_b718adec73e04ce3ec720dd11a06a308'] = 'ID';
 $_MODULE['<{ordermodule}prestashop>ordermodule_63d5049791d9d79d86e9a108b0a999ca'] = 'Référence';
