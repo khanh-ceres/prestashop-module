@@ -20,13 +20,13 @@ class OrderModule extends Module
 
         parent::__construct();
 
-        $this->displayName = $this->trans('Order Module');
-        $this->description = $this->trans('Numbering the orders');
+        $this->displayName = $this->trans('Order Module', [], 'Modules.Ordermodule.Ordermodule');
+        $this->description = $this->trans('Numbering the orders', [], 'Modules.Ordermodule.Ordermodule');
 
-        $this->confirmUninstall = $this->trans('Are you sure you want to uninstall?');
+        $this->confirmUninstall = $this->trans('Are you sure you want to uninstall?', [], 'Modules.Ordermodule.Ordermodule');
 
         if (!Configuration::get('ORDERMODULE_NAME')) {
-            $this->warning = $this->trans('No name provided');
+            $this->warning = $this->trans('No name provided', [], 'Modules.Ordermodule.Ordermodule');
         }
     }
 
