@@ -24,10 +24,6 @@ class OrderModule extends Module
         $this->description = $this->trans('Numbering the orders', [], 'Modules.Ordermodule.Ordermodule');
 
         $this->confirmUninstall = $this->trans('Are you sure you want to uninstall?', [], 'Modules.Ordermodule.Ordermodule');
-
-        if (!Configuration::get('ORDERMODULE_NAME')) {
-            $this->warning = $this->trans('No name provided', [], 'Modules.Ordermodule.Ordermodule');
-        }
     }
 
     public function install()
@@ -39,8 +35,7 @@ class OrderModule extends Module
         return (
             parent::install() && 
             $this->registerHook('actionValidateOrder') &&
-            $this->alterTable('add') && // add an extra column named order_carrier_number to orders table
-            Configuration::updateValue('ORDERMODULE_NAME', 'order module')
+            $this->alterTable('add') // add an extra column named order_carrier_number to orders table
         );
     }
 
@@ -48,18 +43,24 @@ class OrderModule extends Module
     {
         return (
             parent::uninstall() && 
-            $this->alterTable('remove') &&
-            Configuration::deleteByName('ORDERMODULE_NAME')
+            $this->alterTable('remove')
         );
     }
 
     public function hookActionValidateOrder($params)
     {
         $db = Db::getInstance();
+        $shop_id = $params['order']->id_shop;
+        $carrier_id = $params['order']->id_carrier;
+        $carrier_reference = $db->getValue('SELECT id_reference FROM '. _DB_PREFIX_ .'carrier WHERE id_carrier = ' . $carrier_id);
         // get the biggest order's number of the current carrier
         $biggestOrderNumber = $db->getValue('
-            SELECT order_carrier_number FROM '._DB_PREFIX_.'orders
-            WHERE id_carrier = '. $params['order']->id_carrier .'
+            SELECT order_carrier_number 
+            FROM '._DB_PREFIX_.'orders o
+            WHERE id_carrier IN (SELECT id_carrier
+                                FROM '._DB_PREFIX_.'carrier
+                                WHERE id_reference = '. $carrier_reference .')
+                AND id_shop = '. $shop_id .'
             ORDER BY order_carrier_number DESC
         ');
 
@@ -72,7 +73,7 @@ class OrderModule extends Module
         return $db->execute('
             UPDATE '._DB_PREFIX_.'orders
             SET order_carrier_number = '.$biggestOrderNumber.'
-            WHERE id_order = '. $params['order']->id .' AND id_carrier = '. $params['order']->id_carrier .'
+            WHERE id_order = '. $params['order']->id .'
         ');
     }
 
@@ -85,12 +86,21 @@ class OrderModule extends Module
 
     public function displayForm($currentCarrier)
     {
-        $carriers = Db::getInstance()->executeS('SELECT id_carrier, name FROM '._DB_PREFIX_.'carrier');
+        // get all carriers from selected shops
+        $shop_ids = implode(", ", Shop::getContextListShopID());
+        $carriers_query = '
+            SELECT DISTINCT c.id_carrier, c.name 
+            FROM '._DB_PREFIX_.'carrier c
+            LEFT JOIN '._DB_PREFIX_.'carrier_shop cs ON c.id_carrier = cs.id_carrier
+            WHERE c.deleted = 0 AND cs.id_shop IN ('. $shop_ids .')
+        ';
+        $carriers = Db::getInstance()->executeS($carriers_query);
+
         if (!$currentCarrier) {
             $currentCarrier = $carriers[0]['id_carrier'];
         }
 
-        return $this->displayCarrierSelector($carriers, $currentCarrier) . $this->displayOrderList($currentCarrier);
+        return $this->displayCarrierSelector($carriers, $currentCarrier) . $this->displayOrderTables($currentCarrier);
     }
 
     public function displayCarrierSelector($carriers, $currentCarrier) {
@@ -129,63 +139,79 @@ class OrderModule extends Module
         return $helper->generateForm([$form]);
     }
 
-    public function displayOrderList($carrier_id) 
+    public function displayOrderTables($carrier_id) 
     {
-        $orders = Db::getInstance()->executeS('
-            SELECT o.order_carrier_number, o.id_order,  o.reference, CONCAT_WS("", cl.symbol, o.total_paid) AS total_paid, o.payment, o.date_add, CONCAT_WS(" ", c.firstname, c.lastname) AS customer
-            FROM '. _DB_PREFIX_ .'orders o
-            LEFT JOIN '. _DB_PREFIX_ .'customer c ON o.id_customer = c.id_customer
-            LEFT JOIN '. _DB_PREFIX_ .'currency_lang cl ON o.id_currency = cl.id_currency AND cl.id_lang = '. (int) Configuration::get('PS_LANG_DEFAULT') .'
-            WHERE o.id_carrier = '. $carrier_id .'
-                AND o.order_carrier_number IS NOT NULL
-            ORDER BY o.order_carrier_number DESC
-        ');
+        $db = Db::getInstance();
+        // get id_reference from current id_carrier
+        $carrier_reference = $db->getValue('SELECT id_reference FROM '. _DB_PREFIX_ .'carrier WHERE id_carrier = ' . $carrier_id);
+        // ids of selected shops
+        $shop_ids = Shop::getContextListShopID();
 
-        $this->fields_list = array(
-            'order_carrier_number' => array(
-                'title' => $this->trans('#', [], 'Modules.Ordermodule.Ordermodule'),
-                'type' => 'text',
-            ),
-            'id_order' => array(
-                'title' => $this->trans('ID', [], 'Modules.Ordermodule.Ordermodule'),
-                'type' => 'text',
-            ),
-            'reference' => array(
-                'title' => $this->trans('Reference', [], 'Modules.Ordermodule.Ordermodule'),
-                'type' => 'text',
-            ),
-            'total_paid' => array(
-                'title' => $this->trans('Total', [], 'Modules.Ordermodule.Ordermodule'),
-                'type' => 'text',
-            ),
-            'payment' => array(
-                'title' => $this->trans('Payment', [], 'Modules.Ordermodule.Ordermodule'),
-                'type' => 'text',
-            ),
-            'date_add' => array(
-                'title' => $this->trans('Date', [], 'Modules.Ordermodule.Ordermodule'),
-                'type' => 'datetime',
-            ),
-            'customer' => array(
-                'title' => $this->trans('Customer', [], 'Modules.Ordermodule.Ordermodule'),
-                'type' => 'text',
-            ),
-        );
-        $helper = new HelperList();
-         
-        $helper->shopLinkType = '';
-         
-        $helper->simple_header = true;
-         
-        $helper->identifier = 'id_order';
-        $helper->show_toolbar = true;
-        $helper->title = $this->trans('Orders', [], 'Modules.Ordermodule.Ordermodule');
-        $helper->table = $this->name.'_orders';
-         
-        $helper->token = Tools::getAdminTokenLite('AdminModules');
-        $helper->currentIndex = AdminController::$currentIndex.'&configure='.$this->name;
+        $order_tables = '';
+        // each shop has a table
+        foreach ($shop_ids as $shop_id) {
+            $shop_name = $db->getValue('SELECT name FROM '._DB_PREFIX_.'shop WHERE id_shop = '. $shop_id);
+            // get carrier's orders by id_reference and selected shop
+            $orders = $db->executeS('
+                SELECT o.order_carrier_number, o.id_order,  o.reference, CONCAT_WS("", cl.symbol, o.total_paid) AS total_paid, o.payment, o.date_add, CONCAT_WS(" ", c.firstname, c.lastname) AS customer
+                FROM '. _DB_PREFIX_ .'orders o
+                LEFT JOIN '. _DB_PREFIX_ .'customer c ON o.id_customer = c.id_customer
+                LEFT JOIN '. _DB_PREFIX_ .'currency_lang cl ON o.id_currency = cl.id_currency AND cl.id_lang = '. (int) Configuration::get('PS_LANG_DEFAULT') .'
+                WHERE o.id_carrier IN (SELECT c.id_carrier FROM '. _DB_PREFIX_ .'carrier c
+                                        WHERE c.id_reference = '. $carrier_reference .')
+                    AND o.order_carrier_number IS NOT NULL
+                    AND o.id_shop = '. $shop_id .'
+                ORDER BY o.order_carrier_number DESC
+            ');
 
-        return $helper->generateList($orders, $this->fields_list);
+            $this->fields_list = array(
+                'order_carrier_number' => array(
+                    'title' => $this->trans('#', [], 'Modules.Ordermodule.Ordermodule'),
+                    'type' => 'text',
+                ),
+                'id_order' => array(
+                    'title' => $this->trans('ID', [], 'Modules.Ordermodule.Ordermodule'),
+                    'type' => 'text',
+                ),
+                'reference' => array(
+                    'title' => $this->trans('Reference', [], 'Modules.Ordermodule.Ordermodule'),
+                    'type' => 'text',
+                ),
+                'total_paid' => array(
+                    'title' => $this->trans('Total', [], 'Modules.Ordermodule.Ordermodule'),
+                    'type' => 'text',
+                ),
+                'payment' => array(
+                    'title' => $this->trans('Payment', [], 'Modules.Ordermodule.Ordermodule'),
+                    'type' => 'text',
+                ),
+                'date_add' => array(
+                    'title' => $this->trans('Date', [], 'Modules.Ordermodule.Ordermodule'),
+                    'type' => 'datetime',
+                ),
+                'customer' => array(
+                    'title' => $this->trans('Customer', [], 'Modules.Ordermodule.Ordermodule'),
+                    'type' => 'text',
+                ),
+            );
+            $helper = new HelperList();
+             
+            $helper->shopLinkType = '';
+             
+            $helper->simple_header = true;
+             
+            $helper->identifier = 'id_order';
+            $helper->show_toolbar = true;
+            $helper->title = $this->trans($shop_name, [], 'Modules.Ordermodule.Ordermodule');
+            $helper->table = $this->name.'_orders';
+             
+            $helper->token = Tools::getAdminTokenLite('AdminModules');
+            $helper->currentIndex = AdminController::$currentIndex.'&configure='.$this->name;
+
+            $order_tables .= $helper->generateList($orders, $this->fields_list);
+        }
+
+        return $order_tables;
     }
 
     private function alterTable($method)
